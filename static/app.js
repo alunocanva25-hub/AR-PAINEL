@@ -423,6 +423,26 @@ function getPanelApiUrl(){
   return saved;
 }
 
+
+function getUserInitials(user){
+  if(!user) return 'DS';
+  const source = (user.nome || user.usuario || '').trim();
+  if(!source) return 'DS';
+  const parts = source.split(/\s+/).filter(Boolean);
+  if(parts.length >= 2){
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  const cleaned = source.replace(/[^A-Za-zÀ-ÿ0-9]/g, '');
+  return cleaned.substring(0,2).toUpperCase() || 'DS';
+}
+
+function applyUserInitials(){
+  const el = document.getElementById('userInitialsAvatar');
+  if(!el) return;
+  const user = currentPanelUser ? currentPanelUser() : null;
+  el.textContent = getUserInitials(user);
+}
+
 function currentPanelUser(){
   return JSON.parse(localStorage.getItem(PANEL_SESSION_KEY)||'null');
 }
@@ -586,6 +606,7 @@ async function doPanelLogin(){
     savePanelSession(user);
     document.getElementById('loginError').textContent='';
     document.getElementById('loginOverlay').style.display='none';
+    applyUserInitials();
     startAutoRefreshTimer();
   }catch(e){
     const fallback = localPanelLogin(usuario, senha);
@@ -593,6 +614,7 @@ async function doPanelLogin(){
       savePanelSession(fallback);
       document.getElementById('loginError').textContent='';
       document.getElementById('loginOverlay').style.display='none';
+    applyUserInitials();
       alert('Entrou em modo local. A API não respondeu agora. Para criar usuários/sincronizar, verifique a API Render.');
       return;
     }
@@ -605,6 +627,7 @@ function logoutPanel(){
     localStorage.removeItem(PANEL_SESSION_KEY);
     if(autoRefreshTimer){clearInterval(autoRefreshTimer);autoRefreshTimer=null;}
     document.getElementById('loginPass').value='';
+    applyUserInitials();
     document.getElementById('loginOverlay').style.display='flex';
   }
 }
@@ -616,7 +639,10 @@ document.getElementById('loginPass').addEventListener('keydown',e=>{ if(e.key===
   const session=currentPanelUser();
   if(session){
     document.getElementById('loginOverlay').style.display='none';
+    applyUserInitials();
     startAutoRefreshTimer();
   }
 })();
 
+
+try{ applyUserInitials(); }catch(e){}

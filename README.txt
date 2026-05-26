@@ -59,3 +59,7 @@ V1.0.1.9_AUTO_REFRESH
 - Intervalos disponíveis: 5, 10 ou 15 minutos.
 - Quando ativo, o painel consulta a API automaticamente para verificar novos uploads.
 - Bloco de atualização automática também possui Recolher/Exibir.
+
+V1.0.2.0_USER_INITIALS
+- Avatar superior mostra as duas iniciais do nome do usuário logado.
+- Se não houver nome, usa as iniciais do login.

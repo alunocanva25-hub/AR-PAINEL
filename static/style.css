@@ -473,3 +473,11 @@ color:#fff;
   font-size:12px;
   line-height:1.4;
 }
+
+
+/* V1.0.2.0 - Iniciais do usuário logado */
+.avatar{
+  font-weight:900 !important;
+  letter-spacing:.2px;
+  text-transform:uppercase;
+}
