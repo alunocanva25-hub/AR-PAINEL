@@ -441,6 +441,18 @@ def import_base(
         raise HTTPException(500, f'Falha ao processar base na API: {e}')
 
 
+
+@app.post('/api/base/reindex')
+def base_reindex(api_url: str=''):
+    api = normalize_panel_api_url(api_url)
+    try:
+        resp = requests.post(api + '/api/base/reindex', timeout=180)
+        return proxy_json_response(resp)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f'Falha ao reindexar base na API: {e}')
+
 @app.get('/api/base/find')
 def find_base(instalacao: str='', medidor: str='', nome_cliente: str='', api_url: str=''):
     api = normalize_panel_api_url(api_url)

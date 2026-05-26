@@ -74,3 +74,8 @@ V1.0.2.2_BASE_XLSX_API_CACHE
 - API processa e salva no PostgreSQL.
 - Evita estourar memória do Render no painel.
 - Mantém as telas e botões existentes.
+
+V1.0.2.3_BASE_FIND_FLEX
+- Painel compatível com API V1.0.0.9.
+- Após processar XLSX, solicita reindexação da base na API.
+- Busca na base passa a aceitar diferenças de pontuação, hífen, espaços e formatação.

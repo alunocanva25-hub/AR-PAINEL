@@ -79,7 +79,11 @@ async function processBase(){
   showProgress('Processando base XLSX','API processando e salvando no PostgreSQL...',5);
   let fd=new FormData();fd.append('sheet',sheetSelect.value);fd.append('col_instalacao',colInst.value);fd.append('col_medidor',colMd.value);fd.append('col_nome_cliente',colNome.value);fd.append('api_url', normalizeApiUrl(localStorage.getItem('dsystem_ar_api_url') || defaultApiUrl()));
   let r=await (await fetch('/api/import-base',{method:'POST',body:fd})).json();
-  setProgress('Base processada',(r.count||0)+' registro(s) lido(s). Novos: '+(r.inserted||0)+' · Atualizados: '+(r.updated||0),100);
+  try{
+    const apiUrl = normalizeApiUrl(localStorage.getItem('dsystem_ar_api_url') || defaultApiUrl());
+    await fetch('/api/base/reindex?api_url='+encodeURIComponent(apiUrl), {method:'POST'});
+  }catch(e){ console.warn('Reindex não executado:', e); }
+  setProgress('Base processada',(r.count||0)+' registro(s) lido(s). Novos: '+(r.inserted||0)+' · Atualizados: '+(r.updated||0)+'. Busca flexível ativa.',100);
   hideProgress();
 }
 function view(id){current=data.find(x=>x.id===id);document.querySelector('.preview').classList.add('open');viewer.src='/api/view/'+id;pName.value=current.filename;pInst.value=current.instalacao||'';pMd.value=current.medidor||'';pNome.value=current.nome_cliente||''}
