@@ -59,10 +59,10 @@ async function uploadFile(file){ return uploadFiles(file?[file]:[]); }
 async function uploadBase(file){
   if(!file)return;
   baseFileLabel.textContent=file.name;
-  showProgress('Carregando base XLSX','Lendo planilha base...',10);
-  let fd=new FormData();fd.append('file',file);
+  showProgress('Carregando base XLSX','Enviando planilha para a API...',10);
+  let fd=new FormData();fd.append('file',file);fd.append('api_url', normalizeApiUrl(localStorage.getItem('dsystem_ar_api_url') || defaultApiUrl()));fd.append('api_url', normalizeApiUrl(localStorage.getItem('dsystem_ar_api_url') || defaultApiUrl()));
   let r=await (await fetch('/api/upload-base-cache',{method:'POST',body:fd})).json();
-  setProgress('Carregando base XLSX','Montando lista de abas...',60);
+  setProgress('Carregando base XLSX','API montando lista de abas...',60);
   sheetSelect.innerHTML='<option value="TODAS">Todas as abas</option>'+r.sheets.map(s=>`<option>${s}</option>`).join('');
   baseInfo.textContent='Base carregada: '+r.sheets.length+' aba(s). Cabeçalho esperado na linha 5, a partir da coluna B.';
   await loadColumns();
@@ -72,19 +72,20 @@ async function uploadBase(file){
 async function loadColumns(){
   colInst.innerHTML='<option value="">Automático</option>'; colMd.innerHTML='<option value="">Automático</option>'; colNome.innerHTML='<option value="">Automático</option>';
   if(sheetSelect.value==='TODAS') return;
-  let r=await (await fetch('/api/base/columns?sheet='+encodeURIComponent(sheetSelect.value))).json();
+  let r=await (await fetch('/api/base/columns?sheet='+encodeURIComponent(sheetSelect.value)+'&api_url='+encodeURIComponent(normalizeApiUrl(localStorage.getItem('dsystem_ar_api_url') || defaultApiUrl())))).json();
   for(const c of r.columns){ if(!c) continue; colInst.innerHTML+=`<option>${c}</option>`; colMd.innerHTML+=`<option>${c}</option>`; colNome.innerHTML+=`<option>${c}</option>`; }
 }
 async function processBase(){
-  showProgress('Processando base XLSX','Importando dados para pesquisa...',5);
-  let fd=new FormData();fd.append('sheet',sheetSelect.value);fd.append('col_instalacao',colInst.value);fd.append('col_medidor',colMd.value);fd.append('col_nome_cliente',colNome.value);
+  showProgress('Processando base XLSX','API processando e salvando no PostgreSQL...',5);
+  let fd=new FormData();fd.append('sheet',sheetSelect.value);fd.append('col_instalacao',colInst.value);fd.append('col_medidor',colMd.value);fd.append('col_nome_cliente',colNome.value);fd.append('api_url', normalizeApiUrl(localStorage.getItem('dsystem_ar_api_url') || defaultApiUrl()));
   let r=await (await fetch('/api/import-base',{method:'POST',body:fd})).json();
-  setProgress('Base processada',(r.count||0)+' registro(s) importado(s).',100);
+  setProgress('Base processada',(r.count||0)+' registro(s) lido(s). Novos: '+(r.inserted||0)+' · Atualizados: '+(r.updated||0),100);
   hideProgress();
 }
 function view(id){current=data.find(x=>x.id===id);document.querySelector('.preview').classList.add('open');viewer.src='/api/view/'+id;pName.value=current.filename;pInst.value=current.instalacao||'';pMd.value=current.medidor||'';pNome.value=current.nome_cliente||''}
 function closePreview(){document.querySelector('.preview').classList.remove('open');viewer.src='';current=null}
-async function saveRename(){if(!current)return;const id=current.id;let fd=new FormData();fd.append('instalacao',pInst.value);fd.append('medidor',pMd.value);fd.append('nome_cliente',pNome.value);await fetch('/api/rename/'+id,{method:'POST',body:fd});await load();const row=data.find(x=>x.id===id);if(row){view(id)}else{closePreview()}}
+async function saveRename(){if(!current)return;const id=current.id;let fd=new FormData();fd.append('instalacao',pInst.value);fd.append('medidor',pMd.value);fd.append('nome_cliente',pNome.value);
+  fd.append('api_url', normalizeApiUrl(localStorage.getItem('dsystem_ar_api_url') || defaultApiUrl()));await fetch('/api/rename/'+id,{method:'POST',body:fd});await load();const row=data.find(x=>x.id===id);if(row){view(id)}else{closePreview()}}
 async function completeBase(){
   if(!current)return;
   let fd=new FormData();
@@ -95,7 +96,7 @@ async function completeBase(){
   if(!r.ok) alert(r.message||'Não encontrado na base');
   await load();view(current.id)
 }
-async function completeBaseRow(id){let fd=new FormData();fd.append('nome_cliente','');let r=await (await fetch('/api/base/complete/'+id,{method:'POST',body:fd})).json();if(!r.ok) alert(r.message||'Não encontrado na base');await load()}
+async function completeBaseRow(id){let fd=new FormData();fd.append('nome_cliente','');fd.append('api_url', normalizeApiUrl(localStorage.getItem('dsystem_ar_api_url') || defaultApiUrl()));let r=await (await fetch('/api/base/complete/'+id,{method:'POST',body:fd})).json();if(!r.ok) alert(r.message||'Não encontrado na base');await load()}
 async function setStatus(s){if(!current)return;await quickStatus(current.id,s);await load();view(current.id)}
 async function quickStatus(id,s){let fd=new FormData();fd.append('status',s);await fetch('/api/status/'+id,{method:'POST',body:fd});load()}
 function downloadCurrent(){if(current)location.href='/api/download/'+current.id}

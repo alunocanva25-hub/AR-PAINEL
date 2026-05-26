@@ -67,3 +67,10 @@ V1.0.2.0_USER_INITIALS
 V1.0.2.1_USERS_COLLAPSE
 - Adicionada opção Recolher/Exibir na seção Usuários dentro de Configuração.
 - A lista de usuários agora fica em área com rolagem para não crescer demais.
+
+V1.0.2.2_BASE_XLSX_API_CACHE
+- Painel não processa mais XLSX localmente.
+- Painel envia XLSX para a API.
+- API processa e salva no PostgreSQL.
+- Evita estourar memória do Render no painel.
+- Mantém as telas e botões existentes.

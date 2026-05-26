@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import sqlite3, shutil, re, json
 import urllib.request
+import requests
 from datetime import datetime
 
 BASE = Path(__file__).parent
@@ -344,102 +345,176 @@ def receber_api(api_url: str = Form(...)):
         'total_api': len(registros)
     }
 
+
+def panel_default_api_url():
+    return os.environ.get('DSYSTEM_AR_API_URL', 'https://dsystem-ar-api.onrender.com').strip().rstrip('/')
+
+def normalize_panel_api_url(api_url: str = ''):
+    u = (api_url or '').strip().rstrip('/')
+    if not u:
+        return panel_default_api_url()
+    if u == 'dsystem-ar-api.onrender.com':
+        return 'https://dsystem-ar-api.onrender.com'
+    if u.startswith('http://dsystem-ar-api.onrender.com'):
+        return 'https://dsystem-ar-api.onrender.com'
+    if re.match(r'^\d+\.\d+\.\d+\.\d+', u):
+        return 'http://' + u
+    if (('192.168.' in u) or ('10.17.' in u) or ('localhost' in u)) and u.startswith('https://'):
+        return u.replace('https://','http://')
+    return u
+
+def proxy_json_response(resp):
+    try:
+        data = resp.json()
+    except Exception:
+        raise HTTPException(resp.status_code, resp.text[:500])
+    if not resp.ok:
+        raise HTTPException(resp.status_code, data.get('detail') if isinstance(data, dict) else data)
+    return data
+
 @app.post('/api/upload-base-cache')
-def upload_base_cache(file: UploadFile=File(...)):
+def upload_base_cache(file: UploadFile=File(...), api_url: str=Form('')):
     if not file.filename.lower().endswith('.xlsx'):
         raise HTTPException(400, 'Envie um arquivo XLSX')
-    with XLSX_CACHE.open('wb') as out:
-        shutil.copyfileobj(file.file, out)
-    wb = load_xlsx_book()
-    return {'ok': True, 'sheets': wb.sheetnames}
+
+    api = normalize_panel_api_url(api_url)
+    try:
+        files = {
+            'file': (
+                file.filename,
+                file.file,
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+        }
+        resp = requests.post(api + '/api/upload-base-cache', files=files, timeout=180)
+        return proxy_json_response(resp)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f'Falha ao enviar XLSX para API: {e}')
+
 
 @app.get('/api/base/sheets')
-def base_sheets():
-    wb = load_xlsx_book()
-    return {'sheets': wb.sheetnames}
+def base_sheets(api_url: str=''):
+    api = normalize_panel_api_url(api_url)
+    try:
+        resp = requests.get(api + '/api/base/sheets', timeout=60)
+        return proxy_json_response(resp)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f'Falha ao consultar abas na API: {e}')
+
 
 @app.get('/api/base/columns')
-def base_columns(sheet: str):
-    wb = load_xlsx_book()
-    if sheet not in wb.sheetnames:
-        raise HTTPException(404, 'Aba não encontrada')
-    ws = wb[sheet]
-    headers=[cell_str(ws.cell(HEADER_ROW, col).value) for col in range(START_COL, ws.max_column+1)]
-    return {'columns': headers}
+def base_columns(sheet: str, api_url: str=''):
+    api = normalize_panel_api_url(api_url)
+    try:
+        resp = requests.get(api + '/api/base/columns', params={'sheet': sheet}, timeout=90)
+        return proxy_json_response(resp)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f'Falha ao consultar colunas na API: {e}')
+
 
 @app.post('/api/import-base')
-def import_base(sheet: str=Form('TODAS'), col_instalacao: str=Form(''), col_medidor: str=Form(''), col_nome_cliente: str=Form('')):
-    wb = load_xlsx_book()
-    sheets = wb.sheetnames if sheet == 'TODAS' else [sheet]
-    count = 0
-    with conn() as c:
-        c.execute('DELETE FROM base_xlsx')
-        for sh in sheets:
-            if sh not in wb.sheetnames:
-                continue
-            ws = wb[sh]
-            headers_raw=[cell_str(ws.cell(HEADER_ROW, col).value) for col in range(START_COL, ws.max_column+1)]
-            headers_norm=[norm_header(h) for h in headers_raw]
-            def col_by_selected(sel, auto_names):
-                if sel:
-                    try:
-                        return headers_raw.index(sel)+START_COL
-                    except ValueError:
-                        pass
-                idx = auto_col(headers_norm, auto_names)
-                return (idx + START_COL - 1) if idx else None
-            col_i=col_by_selected(col_instalacao, ['INSTALACAO','INST','UC','UNIDADE CONSUMIDORA','INSTALAÇÃO'])
-            col_m=col_by_selected(col_medidor, ['MEDIDOR','MD','N MEDIDOR','NUMERO MEDIDOR','SERIAL','N DE SERIE','Nº MEDIDOR'])
-            col_n=col_by_selected(col_nome_cliente, ['NOME_CLIENTE','NOME CLIENTE','CLIENTE','NOME','NOME DO CLIENTE'])
-            for row in range(HEADER_ROW+1, ws.max_row+1):
-                inst=cell_str(ws.cell(row,col_i).value) if col_i else ''
-                md=cell_str(ws.cell(row,col_m).value) if col_m else ''
-                nome=cell_str(ws.cell(row,col_n).value) if col_n else ''
-                if inst or md or nome:
-                    c.execute('INSERT INTO base_xlsx(aba,instalacao,medidor,nome_cliente) VALUES(?,?,?,?)',(sh,inst,md,nome)); count+=1
-        c.commit()
-    return {'ok':True,'count':count, 'sheets': sheets}
+def import_base(
+    sheet: str=Form('TODAS'),
+    col_instalacao: str=Form(''),
+    col_medidor: str=Form(''),
+    col_nome_cliente: str=Form(''),
+    api_url: str=Form('')
+):
+    api = normalize_panel_api_url(api_url)
+    try:
+        resp = requests.post(api + '/api/import-base', data={
+            'sheet': sheet,
+            'col_instalacao': col_instalacao,
+            'col_medidor': col_medidor,
+            'col_nome_cliente': col_nome_cliente
+        }, timeout=600)
+        return proxy_json_response(resp)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f'Falha ao processar base na API: {e}')
+
 
 @app.get('/api/base/find')
-def find_base(instalacao: str='', medidor: str='', nome_cliente: str=''):
-    with conn() as c:
-        r=None
-        if instalacao:
-            r=c.execute('SELECT * FROM base_xlsx WHERE instalacao=? LIMIT 1',(instalacao,)).fetchone()
-        if not r and medidor:
-            r=c.execute('SELECT * FROM base_xlsx WHERE medidor=? LIMIT 1',(medidor,)).fetchone()
-        if not r and nome_cliente:
-            r=c.execute('SELECT * FROM base_xlsx WHERE nome_cliente LIKE ? LIMIT 1',(f'%{nome_cliente}%',)).fetchone()
-    return dict(r) if r else {}
+def find_base(instalacao: str='', medidor: str='', nome_cliente: str='', api_url: str=''):
+    api = normalize_panel_api_url(api_url)
+    try:
+        resp = requests.get(api + '/api/base/find', params={
+            'instalacao': instalacao,
+            'medidor': medidor,
+            'nome_cliente': nome_cliente
+        }, timeout=60)
+        return proxy_json_response(resp)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f'Falha ao consultar base na API: {e}')
+
 
 @app.post('/api/base/complete/{id}')
-def complete_from_base(id:int, instalacao: str=Form(''), medidor: str=Form(''), nome_cliente: str=Form('')):
+def complete_from_base(
+    id:int,
+    instalacao: str=Form(''),
+    medidor: str=Form(''),
+    nome_cliente: str=Form(''),
+    api_url: str=Form('')
+):
+    api = normalize_panel_api_url(api_url)
+
     with conn() as c:
-        ar=c.execute('SELECT * FROM ars WHERE id=?',(id,)).fetchone()
-        if not ar: raise HTTPException(404, 'AR não encontrado')
-        r=None
+        ar = c.execute('SELECT * FROM ars WHERE id=?',(id,)).fetchone()
+        if not ar:
+            raise HTTPException(404, 'AR não encontrado')
+
         search_inst = instalacao or ar['instalacao'] or ''
         search_md = medidor or ar['medidor'] or ''
         search_nome = nome_cliente or ar['nome_cliente'] or ''
-        if search_inst:
-            r=c.execute('SELECT * FROM base_xlsx WHERE instalacao=? LIMIT 1',(search_inst,)).fetchone()
-        if not r and search_md:
-            r=c.execute('SELECT * FROM base_xlsx WHERE medidor=? LIMIT 1',(search_md,)).fetchone()
-        if not r and search_nome:
-            r=c.execute('SELECT * FROM base_xlsx WHERE nome_cliente LIKE ? LIMIT 1',(f'%{search_nome}%',)).fetchone()
-        if not r:
-            return {'ok': False, 'message': 'Não encontrado na base'}
-        inst = instalacao or ar['instalacao'] or r['instalacao'] or ''
-        md = medidor or ar['medidor'] or r['medidor'] or ''
-        nome = nome_cliente or ar['nome_cliente'] or r['nome_cliente'] or ''
-        old=UPLOADS/ar['filename']
-        ext=old.suffix.lower().replace('.','') or 'pdf'
-        newname=build_name(inst, md, ext)
-        new=UPLOADS/newname
-        base=new.stem; i=2
+
+    try:
+        resp = requests.get(api + '/api/base/find', params={
+            'instalacao': search_inst,
+            'medidor': search_md,
+            'nome_cliente': search_nome
+        }, timeout=60)
+        r = proxy_json_response(resp)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f'Falha ao consultar base na API: {e}')
+
+    if not r:
+        return {'ok': False, 'message': 'Não encontrado na base'}
+
+    with conn() as c:
+        ar = c.execute('SELECT * FROM ars WHERE id=?',(id,)).fetchone()
+        inst = instalacao or ar['instalacao'] or r.get('instalacao') or ''
+        md = medidor or ar['medidor'] or r.get('medidor') or ''
+        nome = nome_cliente or ar['nome_cliente'] or r.get('nome_cliente') or ''
+
+        old = UPLOADS / ar['filename']
+        ext = old.suffix.lower().replace('.','') or 'pdf'
+        newname = build_name(inst, md, ext)
+        new = UPLOADS / newname
+        base = new.stem
+        i = 2
         while new.exists() and new.name != old.name:
-            new=UPLOADS/f'{base}_{i}.{ext}'; i+=1
+            new = UPLOADS / f'{base}_{i}.{ext}'
+            i += 1
+
         if old.exists() and new.name != old.name:
             old.rename(new)
-        c.execute('UPDATE ars SET instalacao=?, medidor=?, nome_cliente=?, filename=? WHERE id=?',(inst,md,nome,new.name,id)); c.commit()
-    return {'ok': True, 'base': dict(r), 'filename': new.name}
+
+        c.execute(
+            'UPDATE ars SET instalacao=?, medidor=?, nome_cliente=?, filename=? WHERE id=?',
+            (inst, md, nome, new.name, id)
+        )
+        c.commit()
+
+    return {'ok': True, 'base': r, 'filename': new.name}
+
