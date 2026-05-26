@@ -481,3 +481,21 @@ color:#fff;
   letter-spacing:.2px;
   text-transform:uppercase;
 }
+
+
+/* V1.0.2.1 - Recolher Usuários */
+.users-panel-fields.collapsed{
+  display:none !important;
+}
+.users-panel-fields{
+  max-height:360px;
+  overflow:auto;
+  padding-right:4px;
+}
+.users-panel-fields::-webkit-scrollbar{
+  width:6px;
+}
+.users-panel-fields::-webkit-scrollbar-thumb{
+  background:rgba(148,163,184,.45);
+  border-radius:999px;
+}

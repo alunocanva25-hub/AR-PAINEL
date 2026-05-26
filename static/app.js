@@ -322,6 +322,30 @@ function toggleAllRows(master){
 
 
 let autoRefreshTimer = null;
+
+const USERS_PANEL_COLLAPSED_KEY = 'dsystem_ar_users_panel_collapsed';
+
+function toggleUsersPanel(){
+  const box = document.getElementById('usersPanelFields');
+  const btn = document.getElementById('btnToggleUsersPanel');
+  if(!box || !btn) return;
+
+  const collapsed = !box.classList.contains('collapsed');
+  box.classList.toggle('collapsed', collapsed);
+  btn.textContent = collapsed ? 'EXIBIR' : 'RECOLHER';
+  localStorage.setItem(USERS_PANEL_COLLAPSED_KEY, collapsed ? '1' : '0');
+}
+
+function applyUsersPanelCollapse(){
+  const box = document.getElementById('usersPanelFields');
+  const btn = document.getElementById('btnToggleUsersPanel');
+  if(!box || !btn) return;
+
+  const collapsed = localStorage.getItem(USERS_PANEL_COLLAPSED_KEY) === '1';
+  box.classList.toggle('collapsed', collapsed);
+  btn.textContent = collapsed ? 'EXIBIR' : 'RECOLHER';
+}
+
 const AUTO_REFRESH_ENABLED_KEY = 'dsystem_ar_auto_refresh_enabled';
 const AUTO_REFRESH_MINUTES_KEY = 'dsystem_ar_auto_refresh_minutes';
 const AUTO_REFRESH_COLLAPSED_KEY = 'dsystem_ar_auto_refresh_collapsed';
@@ -567,6 +591,7 @@ async function openConfigPanel(){
   document.getElementById('configOverlay').classList.remove('hidden');
   applyCreatePanelUserCollapse();
   applyAutoRefreshConfig();
+  applyUsersPanelCollapse();
   await renderPanelUsers();
 }
 

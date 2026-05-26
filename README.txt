@@ -63,3 +63,7 @@ V1.0.1.9_AUTO_REFRESH
 V1.0.2.0_USER_INITIALS
 - Avatar superior mostra as duas iniciais do nome do usuário logado.
 - Se não houver nome, usa as iniciais do login.
+
+V1.0.2.1_USERS_COLLAPSE
+- Adicionada opção Recolher/Exibir na seção Usuários dentro de Configuração.
+- A lista de usuários agora fica em área com rolagem para não crescer demais.
