@@ -1,0 +1,115 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DSYSTEM AR PAINEL</title><link rel="stylesheet" href="/static/style.css"></head><body>
+
+<div id="loginOverlay" class="login-overlay">
+  <div class="login-box">
+    <div class="login-brand">DSYSTEM<br><span>AR PAINEL</span></div>
+
+    <label>Usuário</label>
+    <input id="loginUser" placeholder="Digite o usuário">
+
+    <label>Senha</label>
+    <input id="loginPass" type="password" placeholder="Digite a senha">
+
+    <button id="btnLoginPanel">ENTRAR</button>
+
+    <small id="loginError"></small><small id="loginHintApi" class="login-hint">API: Render online / fallback local</small>
+  </div>
+</div>
+
+<aside id="sidebar"><div class="brand"><div class="logoMark">DS</div><div class="brandText"><b>DSYSTEM</b><span>AR PAINEL</span><small>V1.0.1.9</small></div></div><nav><button class="active"><span>ARs Enviadas</span></button><button onclick="document.getElementById('file').click()"><span>Importar PDF</span></button><button onclick="document.getElementById('folder').click()"><span>Adicionar Pasta</span></button><button onclick="atualizarComApi()"><span>Atualizar</span></button><button onclick="openConfigPanel()"><span>Configuração</span></button><button onclick="receberApi()"><span>Receber API</span></button><button onclick="toggleThemeMenu()"><span>Temas</span></button></nav><div class="sideFooter">DSYSTEM</div></aside>
+<main><div class="topAccent"></div><header><div class="titleBlock"><button class="menuToggle" onclick="toggleMenu()">☰</button><div><span class="breadcrumb">Dashboards /</span><h1>ARs Enviadas</h1><p>Visualize, renomeie, cruze com base XLSX e gerencie suas Cartas AR</p></div></div><div class="topActions"><button class="themePill" onclick="setThemeMode('light')" title="Tema claro">☀</button><button class="themePill" onclick="setThemeMode('dark')" title="Tema escuro">☾</button><span class="avatar">DS</span><button class="themePill logoutBtn" onclick="logoutPanel()" title="Sair">Sair</button><button class="green" onclick="downloadSelected()">BAIXAR SELECIONADOS</button></div></header>
+<div id="themeMenu" class="themeMenu">
+  <button class="themeColor greenTheme" onclick="setAccentTheme('green')">Verde</button>
+  <button class="themeColor blueTheme" onclick="setAccentTheme('blue')">Azul</button>
+  <button class="themeColor roseTheme" onclick="setAccentTheme('rose')">Marrom</button>
+</div>
+<section class="uploadBox">
+  <div class="uploadCard" onclick="document.getElementById('file').click()"><b>Importar PDF</b><span id="pdfLabel">Escolha um ou vários arquivos PDF/imagem</span></div>
+  <div class="uploadCard" onclick="document.getElementById('folder').click()"><b>Adicionar Pasta</b><span id="folderLabel">Escolha uma pasta completa de ARs</span></div>
+  <div class="uploadCard" onclick="document.getElementById('base').click()"><b>Base XLSX</b><span id="baseFileLabel">Nenhuma base selecionada</span></div>
+</section>
+
+<section class="baseBox"><div class="baseTitle"><b>Base XLSX</b><span id="baseInfo">Nenhuma base carregada nesta sessão</span></div><div class="baseGrid"><label>Aba<select id="sheetSelect" onchange="loadColumns()"><option value="TODAS">Todas as abas</option></select></label><label>Coluna Instalação<select id="colInst"><option value="">Automático</option></select></label><label>Coluna Medidor<select id="colMd"><option value="">Automático</option></select></label><label>Coluna Nome Cliente<select id="colNome"><option value="">Automático</option></select></label><button onclick="processBase()">PROCESSAR BASE</button></div></section>
+<section class="filters"><label>Data inicial<input id="fDataIni" type="date"></label><label>Data final<input id="fDataFim" type="date"></label><label>Instalação<input id="fInst" placeholder="Digite a instalação"></label><label>Medidor<input id="fMd" placeholder="Digite o medidor"></label><label>Nome Cliente<input id="fNome" placeholder="Procurar por NOME_CLIENTE"></label><label>Status<select id="fStatus"><option>Todos</option><option>Pendente</option><option>Conferido</option><option>Erro OCR</option></select></label><button onclick="load()">FILTRAR</button><button class="ghost" onclick="clearFilters()">LIMPAR</button></section>
+<section class="grid"><div class="tableCard"><div id="count">0 registros encontrados</div><table><thead><tr>
+<th><input type="checkbox" id="checkAll" onchange="toggleAllRows(this)"></th>
+<th>Data/Hora</th>
+<th>Instalação</th>
+<th>Medidor</th>
+<th>Nome Cliente</th>
+<th>Enviado por</th>
+<th>Nome do Arquivo</th>
+<th>Status</th>
+<th>Ações</th>
+</tr></thead><tbody id="rows"></tbody></table></div><div class="preview"><div class="modalCard"><div class="phead"><div><b>Visualizar e Renomear</b><small>Confira o arquivo, ajuste os dados e salve a nomenclatura.</small></div><div class="overlayNav"><button onclick="prevRecord()">‹ Anterior</button><button onclick="nextRecord()">Próximo ›</button><button class="closeBtn" onclick="closePreview()">×</button></div></div><div class="modalBody"><div class="viewerBox"><iframe id="viewer"></iframe></div><div class="editBox"><label>Nome do arquivo<input id="pName" readonly></label><div class="two"><label>Instalação<input id="pInst"></label><label>Medidor<input id="pMd"></label></div><label>Nome Cliente<input id="pNome" placeholder="Digite para procurar na base"></label><div class="actions"><button class="green" onclick="saveRename()">SALVAR NOME</button><button onclick="completeBase()">BUSCAR BASE</button><button onclick="setStatus('Conferido')">OK</button><button class="red" onclick="setStatus('Erro OCR')">ERRO</button><button onclick="downloadCurrent()">BAIXAR</button></div></div></div></div></div></section>
+
+<div id="progressOverlay" class="progressOverlay">
+  <div class="progressCard">
+    <b id="progressTitle">Carregando...</b>
+    <p id="progressText">Aguarde enquanto o sistema processa.</p>
+    <div class="progressBar"><span id="progressFill"></span></div>
+    <small id="progressPct">0%</small>
+  </div>
+</div>
+<div class="nativeInputs" aria-hidden="true"><input id="file" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple onchange="uploadFiles(this.files)"><input id="folder" type="file" accept=".pdf,.jpg,.jpeg,.png" multiple webkitdirectory directory onchange="uploadFiles(this.files)"><input id="base" type="file" accept=".xlsx" onchange="uploadBase(this.files[0])"></div>
+</main><script src="/static/app.js"></script>
+<div id="configOverlay" class="config-overlay hidden">
+  <div class="config-modal">
+    <div class="config-header">
+      <h2>Configuração</h2>
+      <button class="config-close" onclick="closeConfigPanel()">✕</button>
+    </div>
+
+    <div class="config-section">
+      <div class="config-title-row"><h3>Criar usuário</h3><button id="btnToggleCreatePanelUser" class="mini-toggle" type="button" onclick="toggleCreatePanelUser()">RECOLHER</button></div><div id="createPanelUserFields" class="create-panel-user-fields">
+
+      <label>Usuário</label>
+      <input id="newUser">
+
+      <label>Nome</label>
+      <input id="newName">
+
+      <label>Senha</label>
+      <input id="newPass" type="password">
+
+      <label>Perfil</label>
+      <select id="newRole">
+        <option value="operador">Operador</option>
+        <option value="admin">Admin</option>
+      </select>
+
+      <button onclick="createPanelUser()">CRIAR USUÁRIO</button>
+    </div>
+    </div>
+
+
+    <div class="config-section">
+      <div class="config-title-row">
+        <h3>Atualização automática</h3>
+        <button id="btnToggleAutoRefreshPanel" class="mini-toggle" type="button" onclick="toggleAutoRefreshPanel()">RECOLHER</button>
+      </div>
+      <div id="autoRefreshPanelFields" class="auto-refresh-panel-fields">
+        <label class="auto-refresh-check">
+          <input id="autoRefreshEnabled" type="checkbox" onchange="saveAutoRefreshConfig()">
+          <span>Atualizar automaticamente</span>
+        </label>
+
+        <label>Intervalo</label>
+        <select id="autoRefreshMinutes" onchange="saveAutoRefreshConfig()">
+          <option value="5">5 minutos</option>
+          <option value="10">10 minutos</option>
+          <option value="15">15 minutos</option>
+        </select>
+
+        <small id="autoRefreshStatus">Automático desativado.</small>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <h3>Usuários</h3>
+      <div id="panelUsers"></div>
+    </div>
+  </div>
+</div>
+
+</body></html>
